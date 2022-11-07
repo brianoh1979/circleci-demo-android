@@ -57,7 +57,7 @@ jobs:
     executor:
       name: android/android-machine # Machine Executor
       resource-class: xlarge
-      tag: 2022.06.1
+      tag: 2022.06.2
     steps:
       - checkout
       - android/start-emulator-and-run-tests
@@ -83,10 +83,10 @@ workflows:
       - unit_test
       - unit_test_parallel
       - integration_test
-      - beta:
-          context: # Context
-            - mobile
-          filters: # Filter Branch
-            branches:
-              only:
-                - master
+#      - beta:
+#          context: # Context
+#            - mobile
+#          filters: # Filter Branch
+#            branches:
+#              only:
+#                - master
