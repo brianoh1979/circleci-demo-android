@@ -13,6 +13,8 @@ jobs:
       tag: 2022.06.1
     steps:
       - checkout
+      - run: git lfs install
+      - run: git lfs pull
       - android/restore-gradle-cache
       - run: ./gradlew lintDebug
       - android/save-gradle-cache
