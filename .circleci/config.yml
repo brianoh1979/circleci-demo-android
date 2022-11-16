@@ -13,6 +13,8 @@ jobs:
       tag: 2022.06.1
     steps:
       - checkout
+      - run: curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+      - run: sudo apt-get install git-lfs
       - run: git lfs install
       - run: git lfs pull
       - android/restore-gradle-cache
