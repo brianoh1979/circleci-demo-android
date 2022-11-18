@@ -24,6 +24,7 @@ jobs:
                -O /tmp/${JAVA_VERSION}.tar.gz
             mkdir java11
             sudo tar -zxf /tmp/${JAVA_VERSION}.tar.gz -C java11
+      - run: ./gradlew --daemon :app:clean
       - android/restore-gradle-cache
       - run: ./gradlew lintDebug
       - android/save-gradle-cache
