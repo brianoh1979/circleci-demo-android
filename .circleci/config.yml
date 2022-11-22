@@ -1,3 +1,5 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
 # Orbs
@@ -5,8 +7,21 @@ orbs:
   android: circleci/android@2.1.2
   ruby: circleci/ruby@2.0.0
 
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
-  lint:
+  checkout-branch:
+    docker:
+      - image: 'cimg/base:2022.11'
+    steps:
+      - checkout
+#      - run: ls
+      - run:
+          command: git lfs install
+      - run:
+          command: git lfs pull
+
+  clean-environment:
     executor:
       name: android/android-docker # Docker Executor
       resource-class: xlarge
@@ -15,91 +30,45 @@ jobs:
       - checkout
       - run:
           command: echo "clean"
+      - run: ls -la /home/circleci/project
 #      - run:
-#          name: Check java
-#          command: |
-#            set -xe
-#            JAVA_VERSION=zulu11.31.11-ca-jdk11.0.3-linux_x64
-#            wget https://cdn.azul.com/zulu/bin/${JAVA_VERSION}.tar.gz \
-#               -O /tmp/${JAVA_VERSION}.tar.gz
-#            mkdir java11
-#            sudo tar -zxf /tmp/${JAVA_VERSION}.tar.gz -C java11
-      - run: ./gradlew
-      - run: ./gradlew --daemon :app:clean
-      - android/restore-gradle-cache
-      - run: ./gradlew lintDebug
-      - android/save-gradle-cache
+#          command: gradle wrapper --gradle-version 7.0.2 --distribution-type all
+      - run:
+          command: ./gradlew --daemon :app:clean
 
-  unit_test:
-    executor:
-      name: android/android-docker # Docker Executor
-      resource-class: xlarge
-      tag: 2022.06.1
+  run-lint:
+    docker:
+      - image: 'cimg/base:2022.11'
     steps:
-      - checkout
-      - android/restore-gradle-cache
-      - run: ./gradlew testDebugUnitTest
-      - android/save-gradle-cache
-      - store_test_results: # Upload Test Results(Test Insights)
-          path: ./app/build/test-results/testDebugUnitTest
+      - run:
+          command: echo "running lint"
+      - run:
+          command: ./gradlew :app:lintEdreamsDebug
 
-  unit_test_parallel:
-    executor:
-      name: android/android-docker # Docker Executor
-      resource-class: xlarge
-      tag: 2022.06.1
-    parallelism: 4
+  unit-tests:
+    docker:
+      - image: 'cimg/base:2022.11'
     steps:
-      - checkout
-      - android/restore-gradle-cache
-      - run: |
-            cd app/src/test/java
-            CLASSNAMES=$(circleci tests glob "**/*Test.kt" \
-              | sed 's@/@.@g' \
-              | sed 's/.kt//' \
-              | circleci tests split --split-by=timings --timings-type=classname)
-            cd ../../../../
-            GRADLE_ARGS=$(echo $CLASSNAMES | awk '{for (i=1; i<=NF; i++) print "--tests",$i}')
-            echo "Prepared arguments for Gradle: $GRADLE_ARGS"
-            ./gradlew testDebugUnitTest $GRADLE_ARGS -Pcircleci
-      - android/save-gradle-cache
-      - store_test_results: # Upload Test Results(Test Insights)
-          path: ./app/build/test-results/testDebugUnitTest
+      - run:
+          command: echo "Unit Tests"
+      - run:
+          command: ./gradlew --daemon cleanTest allUnitTests
 
-  integration_test:
-    executor:
-      name: android/android-machine # Machine Executor
-      resource-class: xlarge
-      tag: 2022.06.2
-    steps:
-      - checkout
-      - android/start-emulator-and-run-tests
-      - store_test_results: # Upload Test Results(Test Insights)
-          path: ./app/build/outputs/androidTest-results/connected
-
-  beta:
-    executor:
-      name: android/android-docker # Docker Executor
-      resource-class: xlarge
-      tag: 2022.06.1
-    steps:
-      - checkout
-      - android/restore-gradle-cache
-      - ruby/install-deps # Ruby(Fastlane)
-      - run: bundle exec fastlane beta
-      - android/save-gradle-cache
-
+# Invoke jobs via workflows
+# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
-  main:
+  version: 2
+  build-and-test:
     jobs:
-      - lint
-      - unit_test
-      - unit_test_parallel
-      - integration_test
-#      - beta:
-#          context: # Context
-#            - mobile
-#          filters: # Filter Branch
-#            branches:
-#              only:
-#                - master
+      - checkout-branch
+      - clean-environment:
+          requires:
+            - checkout-branch
+      - run-lint:
+          requires:
+            - clean-environment
+      - unit-tests:
+          requires:
+            - run-lint
+
+
